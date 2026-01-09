@@ -6,7 +6,7 @@
 <p align="center">
 <a href="https://github.com/modelscope/ms-swift" target="_blank"><img src="https://img.shields.io/badge/modelscope-ms--swift-red"></a>
 <a href="https://github.com/vllm-project/vllm" target="_blank"><img src="https://img.shields.io/badge/vLLM-blue"></a>
-<a href="https://arxiv.org/abs/2409.01704"><img src="https://img.shields.io/badge/Vue3+Vite-red"></a> 
+<a href="https://vuejs.org/"><img src="https://img.shields.io/badge/Vue3+Vite-red"></a> 
 <a href="https://github.com/vlmOCR/Kalorda"><img src="https://img.shields.io/badge/github-repo-blue?logo=github"></a>
 <a href="https://pypi.org/project/kalorda"><img src="https://img.shields.io/badge/pypi-v0.1.1-orange"></a>
 <a href="https://kalorda.vlmocr.com"><img src="https://img.shields.io/badge/Website-online-yellow"></a> 
@@ -58,9 +58,9 @@ kalorda --port 8800
 
 GitHub/Issues：[https://github.com/vlmOCR/Kalorda/issues](https://github.com/vlmOCR/Kalorda/issues)
 
-微信：
+微信：llery2021
 
-<img src="../frontend/public/wx.png" width="230px" title="微信群" />
+<img src="https://raw.githubusercontent.com/vlmOCR/Kalorda/refs/heads/main/frontend/public/wx.png" width="230px" title="微信" />
 
 (扫码添加微信，备注：kalorda，邀您加入群聊)
 

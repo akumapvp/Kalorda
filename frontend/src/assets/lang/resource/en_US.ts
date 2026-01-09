@@ -658,7 +658,7 @@ export default {
             pleasewait: 'Please wait, the OCR result is being generated'
         },
         home: {
-            title1: 'Lightweight vlmOCR Model Integrated Fine-Tuning Platform',
+            title1: 'integrated fine-tuning platform for lightweight vlmOCR models',
             title2: 'Currently Supported vlmOCR Models',
             title1note: 'Built on vllm+ms-swift, integrating the full workflow of data annotation + fine-tuning + inference testing',
             datalabel: 'Data Annotation',
