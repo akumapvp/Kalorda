@@ -9,7 +9,7 @@ version={attr="kalorda.package.version"}
 dynamic = ["version"]
 name = "kalorda"
 description = "integrated fine-tuning platform for lightweight vlmOCR models"
-authors = [{ name = "kalorda", email = "admin@vlmocr.com" },]
+authors = [{ name = "kalorda", email = "postmaster@vlmocr.com" },]
 keywords = [
     "vlm ocr model",
     "vlm ocr model label",
