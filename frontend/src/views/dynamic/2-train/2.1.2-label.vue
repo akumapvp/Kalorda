@@ -3181,6 +3181,19 @@ const markdown2Html = async (markdown: string) => {
     }
 
     // 几何图形 TODO: tikzcd/circuitikz
+    reg = /\\usetikzlibrary([\s\S]*?)\\end{tikzpicture}/gi;
+    while ((res = reg.exec(text))) {
+        let find = res[0];
+        const [err, svg] = await promise2(tikz2svg(find));
+        if (err) {
+            console.log(err);
+            continue;
+        }
+        let caption = ``;
+        //encodeURIComponent避免中间过程因特殊字符造成的问题（后面再解码）
+        let tikz = `<div id="tikzjax-${uuid()}" data-latex="${encodeURIComponent(find)}" class="ql-tikzjax"><label></label><div>${svg}</div><span>${caption}</span></div>`;
+        text = text.replace(find, tikz);
+    }
     reg = /\\begin{tikzpicture}([\s\S]*?)\\end{tikzpicture}/gi;
     while ((res = reg.exec(text))) {
         let find = res[0];

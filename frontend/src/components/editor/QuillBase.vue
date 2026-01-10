@@ -43,7 +43,8 @@
                 </span>
             </slot>
         </div>
-        <div ref="editorElement" :class="cx('content')" :style="editorStyle" v-bind="ptm('content')" spellcheck="false"></div>
+        <div ref="editorElement" :class="cx('content')" :style="editorStyle" v-bind="ptm('content')" spellcheck="false">
+        </div>
     </div>
 </template>
 
@@ -52,6 +53,7 @@
 import BaseEditableHolder from '@primevue/core/baseeditableholder';
 import EditorStyle from 'primevue/editor/style';
 import { isExist } from '@primeuix/utils/dom';
+import { getLanguage } from '@/assets/lang/language';
 
 const QuillJS = (function () {
     try {
@@ -104,6 +106,16 @@ export default {
                     container: this.$refs.toolbarElement,
                     handlers: this.handlers || {}
                 },
+                'table-better': {
+                    language: getLanguage().code,
+                    toolbarButtons: {
+                        whiteList: [],
+                        singleWhiteList: []
+                    },
+                    // menus: ['column', 'row', 'merge', 'table', 'cell', 'wrap', 'copy', 'delete'],
+                    menus: ['column', 'row', 'merge', 'wrap', 'delete'],
+                    toolbarTable: true
+                },
                 ...this.modules
             },
             readOnly: this.readonly,
@@ -145,7 +157,7 @@ export default {
             if (this.quill) {
                 if (value) {
                     const delta = this.quill.clipboard.convert({ html: value });
-                    this.quill.setContents(delta);
+                    this.quill.updateContents(delta);
                 } else {
                     this.quill.setText('');
                 }

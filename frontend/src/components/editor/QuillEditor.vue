@@ -21,6 +21,9 @@ import HatchingLineBlot from './blot/HatchingLineBlot';
 import MathFieldBlot from './blot/MathFieldBlot';
 import TikZJaxBlot from './blot/TikZJaxBlot';
 import IllustrationBlot from './blot/IllustrationBlot';
+import QuillTableBetter from 'quill-table-better';
+import 'quill/dist/quill.snow.css';
+import 'quill-table-better/dist/quill-table-better.css'
 
 import { useI18n } from 'vue-i18n';
 const { t } = useI18n();
@@ -35,6 +38,7 @@ Quill.register('formats/hatchingline', HatchingLineBlot, true);
 Quill.register('formats/mathfield', MathFieldBlot, true);
 Quill.register('formats/tikzjax', TikZJaxBlot, true);
 Quill.register('formats/illustration', IllustrationBlot, true);
+Quill.register('modules/table-better', QuillTableBetter, true); // 注册表格插件
 
 window.katex = katex;
 
@@ -380,7 +384,7 @@ const resetCurrentIllustration = () => {
 };
 
 const editorClickEvent = (e: MouseEvent) => {
-    e.stopPropagation();
+    //e.stopPropagation();
     //一定要先重置
     resetCurrentFormula();
     resetCurrentTikzJax();
@@ -490,7 +494,7 @@ const delBlotNodeMask = (targetId: string) => {
 };
 
 const editorDblClickEvent = (e: MouseEvent) => {
-    e.stopPropagation();
+    // e.stopPropagation();
     if (!editorInstance.value.quill.isEnabled()) return;
     const path = e.composedPath() as HTMLElement[];
     if (!path || path.length <= 0) return;
@@ -564,7 +568,7 @@ watch([() => props.editorOutput, () => props.editorValue], ([newValue1, newValue
     oldValue2;
     if (newValue1.length == 0 && newValue2.length == 0) {
         const quill = editorInstance.value.quill;
-        quill.setContents(new Delta().insert('')); // 清空编辑器内容
+        quill.updateContents(new Delta().insert('')); // 清空编辑器内容
         // quill.setSelection(0, 0); // 光标定位到编辑器开头
         // quill.history.clear(); // 清空撤销重做历史记录
     } else {
@@ -667,14 +671,9 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <Editor
-        ref="editorInstance"
-        v-model="editorValue"
+    <Editor ref="editorInstance" v-model="editorValue"
         :editorStyle="`font-family:'NSimSun','Noto Sans SC',sans-serif;height:${props.editorHeight}px;width:${editorWidth};font-size:${editorFontSize};`"
-        :modules="{}"
-        :handlers="handlers"
-        @text-change="onEditorChange"
-    >
+        :modules="{}" :handlers="handlers" @text-change="onEditorChange">
         <template v-slot:toolbar>
             <span class="ql-formats" id="group0">
                 <select class="ql-header" style="line-height: 2rem; margin-right: 5px">
@@ -683,19 +682,30 @@ onUnmounted(() => {
                     <option value="3">{{ t('quill.toolbar.header.header3') }}</option>
                     <option selected>{{ t('quill.toolbar.header.normal') }}</option>
                 </select>
-                <Button v-tooltip.bottom="t('quill.toolbar.paragraph')" icon="iconfont icon-section-solid" severity="secondary" variant="outlined" class="custombutton" @click="toolbarToggle(1, true)"></Button>
-                <Button v-tooltip.bottom="t('quill.toolbar.text')" icon="iconfont icon-a-solid" severity="secondary" variant="outlined" class="custombutton" @click="toolbarToggle(2, true)"></Button>
-                <Button v-tooltip.bottom="t('quill.toolbar.object')" icon="iconfont icon-circle-nodes-solid" severity="secondary" variant="outlined" class="custombutton" @click="toolbarToggle(3, true)"></Button>
-                <Button v-tooltip.bottom="t('quill.toolbar.selectall')" icon="iconfont icon-infinity-solid" style="margin-left: 10px; margin-right: 5px" severity="secondary" variant="outlined" class="custombutton" @click="selectAll"></Button>
-                <Button v-tooltip.bottom="t('quill.toolbar.cut')" icon="iconfont icon-scissors-solid" severity="secondary" variant="outlined" class="custombutton" @click="cut"></Button>
-                <Button v-tooltip.bottom="t('quill.toolbar.undo')" icon="iconfont icon-rotate-left-solid" severity="secondary" variant="outlined" class="custombutton" @click="undo"></Button>
-                <Button v-tooltip.bottom="t('quill.toolbar.redo')" icon="iconfont icon-rotate-right-solid" severity="secondary" variant="outlined" class="custombutton" @click="redo"></Button>
+                <Button v-tooltip.bottom="t('quill.toolbar.paragraph')" icon="iconfont icon-section-solid"
+                    severity="secondary" variant="outlined" class="custombutton"
+                    @click="toolbarToggle(1, true)"></Button>
+                <Button v-tooltip.bottom="t('quill.toolbar.text')" icon="iconfont icon-a-solid" severity="secondary"
+                    variant="outlined" class="custombutton" @click="toolbarToggle(2, true)"></Button>
+                <Button v-tooltip.bottom="t('quill.toolbar.object')" icon="iconfont icon-circle-nodes-solid"
+                    severity="secondary" variant="outlined" class="custombutton"
+                    @click="toolbarToggle(3, true)"></Button>
+                <Button v-tooltip.bottom="t('quill.toolbar.selectall')" icon="iconfont icon-infinity-solid"
+                    style="margin-left: 10px; margin-right: 5px" severity="secondary" variant="outlined"
+                    class="custombutton" @click="selectAll"></Button>
+                <Button v-tooltip.bottom="t('quill.toolbar.cut')" icon="iconfont icon-scissors-solid"
+                    severity="secondary" variant="outlined" class="custombutton" @click="cut"></Button>
+                <Button v-tooltip.bottom="t('quill.toolbar.undo')" icon="iconfont icon-rotate-left-solid"
+                    severity="secondary" variant="outlined" class="custombutton" @click="undo"></Button>
+                <Button v-tooltip.bottom="t('quill.toolbar.redo')" icon="iconfont icon-rotate-right-solid"
+                    severity="secondary" variant="outlined" class="custombutton" @click="redo"></Button>
                 <div class="mt-1 inline-block h-[18px] overflow-hidden">
                     <button v-tooltip.bottom="t('quill.toolbar.cleanstyles')" class="ql-clean"></button>
                 </div>
             </span>
             <span class="ql-formats" id="group1" style="display: none">
-                <Button v-tooltip.bottom="t('quill.toolbar.back')" icon="iconfont icon-back" severity="secondary" variant="outlined" class="custombutton" @click="toolbarToggle(1, false)"></Button>
+                <Button v-tooltip.bottom="t('quill.toolbar.back')" icon="iconfont icon-back" severity="secondary"
+                    variant="outlined" class="custombutton" @click="toolbarToggle(1, false)"></Button>
                 <button v-tooltip.bottom="t('quill.toolbar.alignleft')" class="ql-align" value=""></button>
                 <button v-tooltip.bottom="t('quill.toolbar.aligncenter')" class="ql-align" value="center"></button>
                 <button v-tooltip.bottom="t('quill.toolbar.alignright')" class="ql-align" value="right"></button>
@@ -712,41 +722,60 @@ onUnmounted(() => {
                 </div>
             </span>
             <span class="ql-formats" id="group2" style="display: none">
-                <Button v-tooltip.bottom="t('quill.toolbar.back')" icon="iconfont icon-back" severity="secondary" variant="outlined" class="custombutton" @click="toolbarToggle(2, false)"></Button>
+                <Button v-tooltip.bottom="t('quill.toolbar.back')" icon="iconfont icon-back" severity="secondary"
+                    variant="outlined" class="custombutton" @click="toolbarToggle(2, false)"></Button>
                 <button v-tooltip.bottom="t('quill.toolbar.bold')" class="ql-bold"></button>
                 <button v-tooltip.bottom="t('quill.toolbar.italic')" class="ql-italic"></button>
                 <!-- <button v-tooltip.bottom="t('quill.toolbar.underline')" class="ql-underline"></button> -->
                 <!-- ql-underline自带的不要了，改用ql-normal-underline -->
-                <Button v-tooltip.bottom="t('quill.toolbar.underline')" icon="iconfont icon-underline-solid" severity="secondary" variant="outlined" class="custombutton ql-normal-underline"></Button>
-                <Button v-tooltip.bottom="t('quill.toolbar.doubleunderline')" icon="iconfont icon-double-underline1" severity="secondary" variant="outlined" class="custombutton ql-double-underline"></Button>
-                <Button v-tooltip.bottom="t('quill.toolbar.wavyunderline')" icon="iconfont icon-wavy-underline" severity="secondary" variant="outlined" class="custombutton ql-wavy-underline"></Button>
-                <Button v-tooltip.bottom="t('quill.toolbar.dashedunderline')" icon="iconfont icon-dashed-underline" severity="secondary" variant="outlined" class="custombutton ql-dashed-underline"></Button>
-                <Button v-tooltip.bottom="t('quill.toolbar.dotunderline')" icon="iconfont icon-dot-underline" severity="secondary" variant="outlined" class="custombutton ql-dot-underline"></Button>
+                <Button v-tooltip.bottom="t('quill.toolbar.underline')" icon="iconfont icon-underline-solid"
+                    severity="secondary" variant="outlined" class="custombutton ql-normal-underline"></Button>
+                <Button v-tooltip.bottom="t('quill.toolbar.doubleunderline')" icon="iconfont icon-double-underline1"
+                    severity="secondary" variant="outlined" class="custombutton ql-double-underline"></Button>
+                <Button v-tooltip.bottom="t('quill.toolbar.wavyunderline')" icon="iconfont icon-wavy-underline"
+                    severity="secondary" variant="outlined" class="custombutton ql-wavy-underline"></Button>
+                <Button v-tooltip.bottom="t('quill.toolbar.dashedunderline')" icon="iconfont icon-dashed-underline"
+                    severity="secondary" variant="outlined" class="custombutton ql-dashed-underline"></Button>
+                <Button v-tooltip.bottom="t('quill.toolbar.dotunderline')" icon="iconfont icon-dot-underline"
+                    severity="secondary" variant="outlined" class="custombutton ql-dot-underline"></Button>
                 <button v-tooltip.bottom="t('quill.toolbar.strikethrough')" class="ql-strike"></button>
-                <Button v-tooltip.bottom="t('quill.toolbar.hatchingline')" icon="iconfont icon-mill-sign-solid" severity="secondary" variant="outlined" class="custombutton ql-hatching-line"></Button>
+                <Button v-tooltip.bottom="t('quill.toolbar.hatchingline')" icon="iconfont icon-mill-sign-solid"
+                    severity="secondary" variant="outlined" class="custombutton ql-hatching-line"></Button>
                 <button v-tooltip.bottom="t('quill.toolbar.subscript')" class="ql-script" value="sub"></button>
                 <button v-tooltip.bottom="t('quill.toolbar.superscript')" class="ql-script" value="super"></button>
-                <Button v-tooltip.bottom="t('quill.toolbar.pinyin')" icon="iconfont icon-brands-opencart" severity="secondary" variant="outlined" class="custombutton"></Button>
+                <Button v-tooltip.bottom="t('quill.toolbar.pinyin')" icon="iconfont icon-brands-opencart"
+                    severity="secondary" variant="outlined" class="custombutton"></Button>
                 <div class="mt-1 inline-block h-[18px] overflow-hidden">
                     <button v-tooltip.bottom="t('quill.toolbar.cleanstyles')" class="ql-clean"></button>
                 </div>
             </span>
             <span class="ql-formats" id="group3" style="display: none">
-                <Button v-tooltip.bottom="t('quill.toolbar.back')" icon="iconfont icon-back" severity="secondary" variant="outlined" class="custombutton" @click="toolbarToggle(3, false)"></Button>
+                <Button v-tooltip.bottom="t('quill.toolbar.back')" icon="iconfont icon-back" severity="secondary"
+                    variant="outlined" class="custombutton" @click="toolbarToggle(3, false)"></Button>
                 <!-- <button v-tooltip.bottom="t('quill.toolbar.image')" class="ql-image"></button> -->
                 <!-- <button v-tooltip.bottom="t('quill.toolbar.formula')" class="ql-formula"></button> -->
-                <!-- <button v-tooltip.bottom="t('quill.toolbar.table')" class="ql-table"></button> -->
-                <Button v-tooltip.bottom="t('quill.toolbar.table.table')" icon="iconfont icon-border-all-solid" severity="secondary" variant="outlined" class="custombutton"></Button>
+                <button v-tooltip.bottom="t('quill.toolbar.table.table')" class="ql-table-better iconfont icon-border-all-solid"></button>
+                <!-- <Button v-tooltip.bottom="t('quill.toolbar.table.table')" icon="iconfont icon-border-all-solid"
+                    severity="secondary" variant="outlined" class="custombutton ql-table-better"></Button> -->
                 <!-- 编辑器里显示插图的逻辑暂时取消 -->
                 <!-- <Button v-tooltip.bottom="t('quill.toolbar.illustration')" icon="iconfont icon-object-group-regular"
                     severity="secondary" variant="outlined" class="custombutton" @click="illusAdd"></Button> -->
-                <Button v-tooltip.bottom="t('quill.toolbar.formula')" icon="iconfont icon-square-root-variable-solid" severity="secondary" variant="outlined" class="custombutton ql-math-field-btn" @click="formulaEdit('', '')"></Button>
-                <Button v-tooltip.bottom="t('quill.toolbar.tikz')" icon="iconfont icon-star-of-david-solid" severity="secondary" variant="outlined" class="custombutton ql-tikzjax-btn" @click="tikZJaxEdit()"></Button>
-                <Button v-tooltip.bottom="t('quill.toolbar.musicscore')" icon="iconfont icon-brands-itunes-note" severity="secondary" variant="outlined" class="custombutton"></Button>
-                <Button v-tooltip.bottom="t('quill.toolbar.chart')" icon="iconfont icon-chart-simple-solid" severity="secondary" variant="outlined" class="custombutton"></Button>
-                <Button v-tooltip.bottom="t('quill.toolbar.specialchar')" icon="iconfont icon-registered-regular" severity="secondary" variant="outlined" class="custombutton" @click="symbolSelect"></Button>
-                <Button v-tooltip.bottom="t('quill.toolbar.emojichar')" icon="iconfont icon-face-smile-regular" severity="secondary" variant="outlined" class="custombutton" @click="emojiSelect"></Button>
-                <Button v-tooltip.bottom="t('quill.toolbar.splitline')" icon="iconfont icon-minus-solid" severity="secondary" variant="outlined" class="custombutton ql-divider"></Button>
+                <Button v-tooltip.bottom="t('quill.toolbar.formula')" icon="iconfont icon-square-root-variable-solid"
+                    severity="secondary" variant="outlined" class="custombutton ql-math-field-btn"
+                    @click="formulaEdit('', '')"></Button>
+                <Button v-tooltip.bottom="t('quill.toolbar.tikz')" icon="iconfont icon-star-of-david-solid"
+                    severity="secondary" variant="outlined" class="custombutton ql-tikzjax-btn"
+                    @click="tikZJaxEdit()"></Button>
+                <Button v-tooltip.bottom="t('quill.toolbar.musicscore')" icon="iconfont icon-brands-itunes-note"
+                    severity="secondary" variant="outlined" class="custombutton"></Button>
+                <Button v-tooltip.bottom="t('quill.toolbar.chart')" icon="iconfont icon-chart-simple-solid"
+                    severity="secondary" variant="outlined" class="custombutton"></Button>
+                <Button v-tooltip.bottom="t('quill.toolbar.specialchar')" icon="iconfont icon-registered-regular"
+                    severity="secondary" variant="outlined" class="custombutton" @click="symbolSelect"></Button>
+                <Button v-tooltip.bottom="t('quill.toolbar.emojichar')" icon="iconfont icon-face-smile-regular"
+                    severity="secondary" variant="outlined" class="custombutton" @click="emojiSelect"></Button>
+                <Button v-tooltip.bottom="t('quill.toolbar.splitline')" icon="iconfont icon-minus-solid"
+                    severity="secondary" variant="outlined" class="custombutton ql-divider"></Button>
                 <div class="mt-1 inline-block h-[18px] overflow-hidden">
                     <button v-tooltip.bottom="t('quill.toolbar.cleanstyles')" class="ql-clean"></button>
                 </div>
@@ -757,8 +786,7 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-.custombutton {
-}
+.custombutton {}
 
 .custombutton:hover {
     color: var(--p-surface-100);
@@ -794,5 +822,13 @@ onUnmounted(() => {
     &.view::part(menu-toggle) {
         display: none;
     }
+}
+
+:deep(.ql-table-button-disabled) {
+    background: none !important;
+}
+
+:deep(.ql-table-better svg) {
+    display: none;
 }
 </style>

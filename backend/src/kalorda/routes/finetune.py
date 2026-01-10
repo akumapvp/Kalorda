@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import uuid
 import zipfile
 from datetime import datetime
@@ -300,7 +301,6 @@ def write_sft_data_file(task: FineTuneTaskDB, train_data_file_path: str, val_dat
             break
         page += 1
         for image in images:
-
             if image.file_path.startswith("./"):
                 image.file_path = image.file_path[1:]
             # 图片相对路径转换为绝对路径
@@ -328,6 +328,44 @@ def write_sft_data_file(task: FineTuneTaskDB, train_data_file_path: str, val_dat
     return train_data_count, val_data_count
 
 
+def html_format(html: str):
+    """
+    格式化HTML字符串，去除表格多余属性、数学公式处理等
+    """
+
+    # 1、正则替换quill/table-better表格属性保留<table><td><tr>标签
+    html = re.sub(r"<table.*?>", "<table>", html)
+    html = re.sub(r"<td.*?>", "<td>", html)
+    html = re.sub(r"<tr.*?>", "<tr>", html)
+    html = re.sub(r"<temporary.*?></temporary>", "", html)
+    html = re.sub(r'<p class="ql-table-block".*?><br></p>', "", html)
+    html = re.sub(r'<p class="ql-table-block".*?>', "<p>", html)
+
+    # 2、正则替换math-field标签为数学公式
+
+    # 判断公式内容中有回车换行符，替换为行内公式否则替换为块级公式
+    def replace_math_tag(match):
+        content = match.group(2)
+        # 检查是否包含Latex换行符(\\)或实际换行符(\n, \r)
+        if "\\" in content or "\n" in content or "\r" in content:
+            # 包含换行符，使用块级公式
+            return f"$$ {content} $$"
+        else:
+            # 不包含换行符，使用行内公式
+            return f"$ {content} $"
+
+    html = re.sub(r"<math-field (.*?)>(.*?)</math-field>", replace_math_tag, html, flags=re.DOTALL)
+
+    # div标签替换
+    html = re.sub(r"<div></div>", "", html)
+    html = re.sub(r"<div>([\s\S]*?)</div>", r"\1 \n ", html)
+
+    # 正则去掉开头或结尾有多余的\n\r空格等无用字符串
+    html = re.sub(r"^\s+|\s+$", "", html)
+
+    return html
+
+
 def convert_ocr_label(image: DatasetImageDB, ocr_model: OcrModel):
     """
     转换标注内容为模型的自己原来的数据格式：因为经过前端标注后的结果都统一按dotsOCR的格式（作为标准格式）保存到后端的，
@@ -350,17 +388,25 @@ def convert_ocr_label(image: DatasetImageDB, ocr_model: OcrModel):
         json_labels = json.loads(ocr_label_json_str)
         ocr_text = []
         for item in json_labels:
-            ocr_text.append(item["text"])  # 只取text
+            ocr_text.append(html_format(item["text"]))  # 只取text
         return "\\n".join(ocr_text)
 
     # 2、dotsOCR 模型
     if ocr_model == OcrModel.dotsocr:
-        return ocr_label_json_str
+        json_labels = json.loads(ocr_label_json_str)
+        ocr_text = []
+        for item in json_labels:
+            item["text"] = html_format(item["text"])
+        return json.dumps(json_labels, ensure_ascii=False)
 
     # 3、dolphin 模型
     if ocr_label_json_str == OcrModel.dolphin:
-        # TODO: 转换为dolphin的格式,未实现
-        return ocr_label_json_str
+        json_labels = json.loads(ocr_label_json_str)
+        ocr_text = []
+        for item in json_labels:
+            item["text"] = html_format(item["text"])
+            # TODO: 还需要有dolphin的额外处理
+        return json.dumps(json_labels, ensure_ascii=False)
 
     # 4、deepseek_ocr 模型
     if ocr_model == OcrModel.deepseek_ocr:
@@ -375,7 +421,9 @@ def convert_ocr_label(image: DatasetImageDB, ocr_model: OcrModel):
                 int(x2 * 999 / image_width),
                 int(y2 * 999 / image_height),
             )
-            ocr_text.append(f"<|ref|>{item['category']}<|/ref|><|det|>[[{x1},{y1},{x2},{y2}]]<|/det|>\\n{item['text']}")
+            ocr_text.append(
+                f"<|ref|>{item['category']}<|/ref|><|det|>[[{x1},{y1},{x2},{y2}]]<|/det|>\\n{html_format(item['text'])}"
+            )
         return "\\n".join(ocr_text)
 
     # 5、paddleocr_vl 模型
@@ -384,7 +432,7 @@ def convert_ocr_label(image: DatasetImageDB, ocr_model: OcrModel):
         json_labels = json.loads(ocr_label_json_str)
         ocr_text = []
         for item in json_labels:
-            ocr_text.append(item["text"])  # 只取text
+            ocr_text.append(html_format(item["text"]))  # 只取text
         return "\\n".join(ocr_text)
 
     # 6、hunyuan_ocr 模型
@@ -393,7 +441,7 @@ def convert_ocr_label(image: DatasetImageDB, ocr_model: OcrModel):
         json_labels = json.loads(ocr_label_json_str)
         ocr_text = []
         for item in json_labels:
-            ocr_text.append(item["text"])  # 只取text
+            ocr_text.append(html_format(item["text"]))  # 只取text
         return "\\n".join(ocr_text)
 
 
