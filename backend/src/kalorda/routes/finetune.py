@@ -340,22 +340,7 @@ def html_format(html: str):
     html = re.sub(r"<temporary.*?></temporary>", "", html)
     html = re.sub(r'<p class="ql-table-block".*?><br></p>', "", html)
     html = re.sub(r'<p class="ql-table-block".*?>', "<p>", html)
-
-    # 2、正则替换math-field标签为数学公式
-
-    # 判断公式内容中有回车换行符，替换为行内公式否则替换为块级公式
-    def replace_math_tag(match):
-        content = match.group(2)
-        # 检查是否包含Latex换行符(\\)或实际换行符(\n, \r)
-        if "\\" in content or "\n" in content or "\r" in content:
-            # 包含换行符，使用块级公式
-            return f"$$ {content} $$"
-        else:
-            # 不包含换行符，使用行内公式
-            return f"$ {content} $"
-
-    html = re.sub(r"<math-field (.*?)>(.*?)</math-field>", replace_math_tag, html, flags=re.DOTALL)
-
+    
     # div标签替换
     html = re.sub(r"<div></div>", "", html)
     html = re.sub(r"<div>([\s\S]*?)</div>", r"\1 \n ", html)

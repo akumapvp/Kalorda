@@ -155,12 +155,11 @@ export default {
     methods: {
         renderValue(value) {
             if (this.quill) {
+                this.quill.setText('');
                 if (value) {
                     const delta = this.quill.clipboard.convert({ html: value });
                     this.quill.updateContents(delta);
-                } else {
-                    this.quill.setText('');
-                }
+                } 
             }
         },
         initQuill() {

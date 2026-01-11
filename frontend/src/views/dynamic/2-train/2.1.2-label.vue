@@ -2972,6 +2972,13 @@ const tikz2svg = (latex: string): Promise<string> => {
         let tikzDocument = '';
         // tikzDocument += `\\usepackage{tikz}\\n`;
         tikzDocument += `\\begin{document}${latex}\\end{document}`;
+        if (!$dom('#' + containerId)) {
+            let div = document.createElement('div');
+            div.id = containerId;
+            div.style = 'position: absolute; top: -1000px; left: 0';
+            document.body.appendChild(div);
+        }
+        console.log('$dom', $dom('#' + containerId));
         $dom('#' + containerId).innerHTML = `<script type='text/tikz'>${tikzDocument}<\/script>`; // data-show-console='true'
 
         let counter = 0;
@@ -3017,6 +3024,7 @@ const unReplaceN = (str: string) => {
 // 这里markdown2Html主要是为了编辑器内web显示
 const markdown2Html = async (markdown: string) => {
     let text = markdown;
+    // console.log('markdown', text);
 
     if (!text || text.length == 0) {
         return '';
@@ -3274,78 +3282,9 @@ const markdown2Html = async (markdown: string) => {
     }
     text = paragraphs.join('');
 
-    let html = text.replace(/<p([^>]*?)>([\s\S]*?)<\/p>/gi, '<div$1>$2</div>');
-    return html;
-};
-
-// 编辑器输出的html转换为markdown
-const html2Markdown = (html: string) => {
-    // console.log('html2Markdown', html);
-
-    // 代码块
-    html = html.replace(/<pre data-language="plain">([\s\S]*?)<\/pre>/gi, '```$1```');
-    // hr分割线
-    html = html.replace(/<hr([^>]*?)>/gi, '\\hrulefill');
-
-    // 文本
-    html = html.replace(/<i([^>]*?)>([\s\S]*?)<\/i>/gi, '\\textit{$2}'); //斜体
-    html = html.replace(/<b([^>]*?)>([\s\S]*?)<\/b>/gi, '\\textbf{$2}'); //粗体
-    html = html.replace(/<em([^>]*?)>([\s\S]*?)<\/em>/gi, '\\textit{$2}'); //斜体
-    html = html.replace(/<strong([^>]*?)>([\s\S]*?)<\/strong>/gi, '\\textbf{$2}'); //粗体
-    html = html.replace(/<s([^>]*?)>([\s\S]*?)<\/s>/gi, '\\sout{$2}'); //中间删除线
-    html = html.replace(/<strike([^>]*?)>([\s\S]*?)<\/strike>/gi, '\\sout{$2}'); //中间删除线
-    html = html.replace(/<del([^>]*?)>([\s\S]*?)<\/del>/gi, '\\sout{$2}'); //中间删除线
-
-    // 标题
-    html = html.replace(/<h1([^>]*?)>([\s\S]*?)<\/h1>/gi, '\\title{$2}');
-    html = html.replace(/<h2([^>]*?)>([\s\S]*?)<\/h2>/gi, '\\section{$2}');
-    html = html.replace(/<h3([^>]*?)>([\s\S]*?)<\/h3>/gi, '\\subsection{$2}');
-    html = html.replace(/<h4([^>]*?)>([\s\S]*?)<\/h3>/gi, '\\subsubsection{$2}');
-
-    let reg;
-    let res;
-
-    // 无序列表
-    reg = /<ol([^>]*?)>([\s\S]*?)<\/ol>/gi;
-    while ((res = reg.exec(html))) {
-        let ol = res[0];
-        let arr = res[2].split('</li>');
-        let latex = `\\begin{itemize}`;
-        for (let i = 0; i < arr.length; i++) {
-            arr[i] = arr[i].replace(/<li>/gi, '');
-            if (arr[i].trim().length > 0) {
-                latex += ` \\item ${arr[i].trim()}`;
-            }
-        }
-        latex += ` \\end{itemize}`;
-        html = html.replace(ol, latex);
-    }
-    // 有序列表
-    reg = /<ul([^>]*?)>([\s\S]*?)<\/ul>/gi;
-    while ((res = reg.exec(html))) {
-        let ul = res[0];
-        let arr = res[2].split('</li>');
-        let latex = `\\begin{enumerate}`;
-        for (let i = 0; i < arr.length; i++) {
-            arr[i] = arr[i].replace(/<li>/gi, '');
-            if (arr[i].trim().length > 0) {
-                latex += ` \\item ${arr[i].trim()}`;
-            }
-        }
-        latex += ` \\end{enumerate}`;
-        html = html.replace(ul, latex);
-    }
-
-    // 引用
-    html = html.replace(/<blockquote([^>]*?)>([\s\S]*?)<\/blockquote>/gi, '> $2\\n');
-
-    html = html.replace('<p', '\n<p');
-    html = html.replace(/<p([^>]*?)>([\s\S]*?)<\/p>/gi, '$2 \n');
-    html = html.replace(/<div([^>]*?)>([\s\S]*?)<\/div>/gi, '$2 \n');
-
-    // 多个连续的\n合并为一个
-    html = html.replace(/[\\n|\s]{2,}/g, '\n');
-
+    // let html = text.replace(/<p([^>]*?)>([\s\S]*?)<\/p>/gi, '<div$1>$2</div>');
+    // return html;
+    let html = text;
     return html;
 };
 
@@ -3366,7 +3305,9 @@ const sourceTextChanged = async (e: any) => {
 // 格式化标注结果
 const format_label_text = (lableInfo: LabelInfo) => {
     // let model_type = dataset.value.model_type;
-    let text = html2Markdown(lableInfo.editorValue);
+    let text = lableInfo.ocrText;
+    console.log('aaa', text);
+    console.log('bbb', lableInfo.editorValue);
     // 统一按 dotsOCR 格式保存 {"bbox": [x1, y1, x2, y2], "category": "category", "text": "text"}
     let result = { bbox: [lableInfo.pos1[0], lableInfo.pos1[1], lableInfo.pos2[0], lableInfo.pos2[1]], category: lableInfo.category.code, text: text };
     return result;
@@ -3892,7 +3833,6 @@ onBeforeUnmount(() => {
                                                             @input="sourceTextChanged"
                                                         ></Textarea>
                                                     </div>
-                                                    <div id="tikz-container" style="position: absolute; top: -1000px; left: 0"></div>
                                                 </div>
 
                                                 <div class="w-full flex items-center justify-between mb-2">
