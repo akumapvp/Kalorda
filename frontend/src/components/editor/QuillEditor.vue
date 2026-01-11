@@ -23,7 +23,7 @@ import TikZJaxBlot from './blot/TikZJaxBlot';
 import IllustrationBlot from './blot/IllustrationBlot';
 import QuillTableBetter from 'quill-table-better';
 import 'quill/dist/quill.snow.css';
-import 'quill-table-better/dist/quill-table-better.css'
+import 'quill-table-better/dist/quill-table-better.css';
 
 import { useI18n } from 'vue-i18n';
 const { t } = useI18n();
@@ -202,6 +202,9 @@ const formulaEdit = (formulaId: string, formula: string) => {
         }
     }
 
+    // 保存当前选区，避免对话框打开后选区丢失
+    const savedRange = editorInstance.value.quill.getSelection(true);
+
     dialog.open(mathliveEditor, {
         data: { formulaId: formulaId, formula: formula },
         props: {
@@ -223,12 +226,21 @@ const formulaEdit = (formulaId: string, formula: string) => {
                 let formulaId = data.formulaId;
                 if (!formula) return;
                 const quill = editorInstance.value.quill;
-                const range = quill.getSelection(true);
-                const contentData = quill.getContents(range.index, 1).ops[0].insert;
+                // 使用保存的选区，避免对话框打开后选区丢失
+                const range = savedRange || quill.getSelection(true);
                 let deleteCount = 0;
-                if (typeof contentData !== 'string' && contentData.mathfield && formulaId === contentData.mathfield.formulaId) {
-                    deleteCount += 1;
+                let contentData;
+
+                try {
+                    contentData = quill.getContents(range.index, 1).ops[0].insert;
+                    if (typeof contentData !== 'string' && contentData.mathfield && formulaId === contentData.mathfield.formulaId) {
+                        deleteCount += 1;
+                    }
+                } catch (error) {
+                    // 容错处理：如果获取内容失败，默认为插入模式
+                    contentData = '';
                 }
+
                 if (!formulaId) {
                     formulaId = `mathfield-${Date.now()}`;
                 }
@@ -259,6 +271,9 @@ const tikZJaxEdit = (data?: any) => {
         }
     }
 
+    // 保存当前选区，避免对话框打开后选区丢失
+    const savedRange = editorInstance.value.quill.getSelection(true);
+
     dialog.open(tikZJaxEditor, {
         data: data,
         props: {
@@ -281,12 +296,21 @@ const tikZJaxEdit = (data?: any) => {
                 let caption = data.caption || '';
                 if (!latex || !svg) return;
                 const quill = editorInstance.value.quill;
-                const range = quill.getSelection(true);
-                const contentData = quill.getContents(range.index, 1).ops[0].insert;
+                // 使用保存的选区，避免对话框打开后选区丢失
+                const range = savedRange || quill.getSelection(true);
                 let deleteCount = 0;
-                if (typeof contentData !== 'string' && contentData.tikzjax && id === contentData.tikzjax.id) {
-                    deleteCount += 1;
+                let contentData;
+
+                try {
+                    contentData = quill.getContents(range.index, 1).ops[0].insert;
+                    if (typeof contentData !== 'string' && contentData.tikzjax && id === contentData.tikzjax.id) {
+                        deleteCount += 1;
+                    }
+                } catch (error) {
+                    // 容错处理：如果获取内容失败，默认为插入模式
+                    contentData = '';
                 }
+
                 if (!id) {
                     id = `tikzjax-${Date.now()}`;
                 }
@@ -313,6 +337,7 @@ const illusAdd = () => {
     if (illusValue.value && illusValue.value.src && illusValue.value.position) {
         const id = `illus-${Date.now()}`;
         const quill = editorInstance.value.quill;
+        // 保存当前选区，避免选区丢失
         const range = quill.getSelection(true);
         const delta = new Delta()
             .retain(range.index)
@@ -384,14 +409,36 @@ const resetCurrentIllustration = () => {
 };
 
 const editorClickEvent = (e: MouseEvent) => {
-    //e.stopPropagation();
-    //一定要先重置
-    resetCurrentFormula();
-    resetCurrentTikzJax();
-    resetCurrentIllustration();
+    // e.stopPropagation();
+
+    // 获取事件路径，用于检查点击目标
+    const path = e.composedPath() as HTMLElement[];
+
+    // 检查点击事件是否来自表格菜单，若是则不重置当前选中状态
+    let isTableMenuClick = false;
+    // 检查是否点击了表格单元格
+    let isTableCellClick = false;
+
+    if (path && path.length > 0) {
+        // 检查是否点击了表格菜单相关元素
+        isTableMenuClick = path.some((node) => {
+            return node.classList && (node.classList.contains('ql-table-better') || node.classList.contains('ql-table-menu'));
+        });
+
+        // 检查是否点击了表格单元格
+        isTableCellClick = path.some((node) => {
+            return node.tagName && (node.tagName.toUpperCase() === 'TD' || node.tagName.toUpperCase() === 'TH');
+        });
+    }
+
+    // 如果不是点击表格菜单，或者是点击了表格单元格，则重置当前选中状态
+    if (!isTableMenuClick || isTableCellClick) {
+        resetCurrentFormula();
+        resetCurrentTikzJax();
+        resetCurrentIllustration();
+    }
 
     if (!editorInstance.value.quill.isEnabled()) return;
-    const path = e.composedPath() as HTMLElement[];
     if (!path || path.length <= 0) return;
 
     const mathFieldNode = path.find((node) => node.tagName && node.tagName.toUpperCase() === MathFieldBlot.tagName.toUpperCase() && node.classList.contains(MathFieldBlot.className));
@@ -546,18 +593,36 @@ const editorKeyDownEvent = (e: KeyboardEvent) => {
     }
 };
 
+// 编辑器内部滚动事件处理函数，阻止事件冒泡，避免菜单关闭
+const editorScrollEvent = (e: Event) => {
+    e.stopPropagation();
+};
+
+// 编辑器内部滚轮事件处理函数，阻止事件冒泡，避免菜单关闭
+const editorWheelEvent = (e: Event) => {
+    e.stopPropagation();
+};
+
 const editorBindEvent = () => {
     if (editorInstance.value && editorInstance.value.quill) {
         editorInstance.value.quill.root.addEventListener('click', editorClickEvent, true);
         editorInstance.value.quill.root.addEventListener('dblclick', editorDblClickEvent, true);
         editorInstance.value.quill.root.addEventListener('keydown', editorKeyDownEvent, true);
+
+        // 监听编辑器内部滚动和滚轮事件，阻止事件冒泡，避免菜单关闭
+        editorInstance.value.quill.root.addEventListener('scroll', editorScrollEvent, true);
+        editorInstance.value.quill.root.addEventListener('wheel', editorWheelEvent, true);
     }
 };
 const editorUnbindEvent = () => {
     if (editorInstance.value && editorInstance.value.quill) {
-        editorInstance.value.quill.root.removeEventListener('click', editorClickEvent);
-        editorInstance.value.quill.root.removeEventListener('dblclick', editorDblClickEvent);
-        editorInstance.value.quill.root.removeEventListener('keydown', editorKeyDownEvent);
+        editorInstance.value.quill.root.removeEventListener('click', editorClickEvent, true);
+        editorInstance.value.quill.root.removeEventListener('dblclick', editorDblClickEvent, true);
+        editorInstance.value.quill.root.removeEventListener('keydown', editorKeyDownEvent, true);
+
+        // 移除滚动和滚轮事件监听器
+        editorInstance.value.quill.root.removeEventListener('scroll', editorScrollEvent, true);
+        editorInstance.value.quill.root.removeEventListener('wheel', editorWheelEvent, true);
     }
 };
 
@@ -610,7 +675,8 @@ const onScrollEvent = (e: any) => {
     e;
     let defaultMode = props.editorHeight == 500; // 高度500是父级页面中带图片列表的视图模式，高度700是父级页面中隐藏了图片列表的视图模式
     let startHeight = defaultMode ? 360 : 105; // 这个值依父级页面定的，根据实际需要调整
-    let toolbar = $dom('.ql-toolbar');
+    // 只选择主工具栏，不影响table-better插件生成的菜单层
+    let toolbar = $dom('.p-editor > .ql-toolbar');
     if (window.scrollY > startHeight) {
         toolbar.style.position = 'fixed';
         toolbar.style.top = '56px'; // 页面布局layout-header的高度
@@ -641,7 +707,8 @@ onMounted(() => {
     resizeObserver = new ResizeObserver((entries) => {
         for (let entry of entries) {
             const { width, height } = entry.contentRect;
-            let toolbar = $dom('.ql-toolbar');
+            // 只选择主工具栏，不影响table-better插件生成的菜单层
+            let toolbar = $dom('.p-editor > .ql-toolbar');
             if (toolbar) {
                 //  && toolbar.style.position === 'fixed'
                 // 工具栏为fixed状态时更新toolbar的宽度=编辑器宽度
@@ -671,9 +738,14 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <Editor ref="editorInstance" v-model="editorValue"
+    <Editor
+        ref="editorInstance"
+        v-model="editorValue"
         :editorStyle="`font-family:'NSimSun','Noto Sans SC',sans-serif;height:${props.editorHeight}px;width:${editorWidth};font-size:${editorFontSize};`"
-        :modules="{}" :handlers="handlers" @text-change="onEditorChange">
+        :modules="{}"
+        :handlers="handlers"
+        @text-change="onEditorChange"
+    >
         <template v-slot:toolbar>
             <span class="ql-formats" id="group0">
                 <select class="ql-header" style="line-height: 2rem; margin-right: 5px">
@@ -682,30 +754,19 @@ onUnmounted(() => {
                     <option value="3">{{ t('quill.toolbar.header.header3') }}</option>
                     <option selected>{{ t('quill.toolbar.header.normal') }}</option>
                 </select>
-                <Button v-tooltip.bottom="t('quill.toolbar.paragraph')" icon="iconfont icon-section-solid"
-                    severity="secondary" variant="outlined" class="custombutton"
-                    @click="toolbarToggle(1, true)"></Button>
-                <Button v-tooltip.bottom="t('quill.toolbar.text')" icon="iconfont icon-a-solid" severity="secondary"
-                    variant="outlined" class="custombutton" @click="toolbarToggle(2, true)"></Button>
-                <Button v-tooltip.bottom="t('quill.toolbar.object')" icon="iconfont icon-circle-nodes-solid"
-                    severity="secondary" variant="outlined" class="custombutton"
-                    @click="toolbarToggle(3, true)"></Button>
-                <Button v-tooltip.bottom="t('quill.toolbar.selectall')" icon="iconfont icon-infinity-solid"
-                    style="margin-left: 10px; margin-right: 5px" severity="secondary" variant="outlined"
-                    class="custombutton" @click="selectAll"></Button>
-                <Button v-tooltip.bottom="t('quill.toolbar.cut')" icon="iconfont icon-scissors-solid"
-                    severity="secondary" variant="outlined" class="custombutton" @click="cut"></Button>
-                <Button v-tooltip.bottom="t('quill.toolbar.undo')" icon="iconfont icon-rotate-left-solid"
-                    severity="secondary" variant="outlined" class="custombutton" @click="undo"></Button>
-                <Button v-tooltip.bottom="t('quill.toolbar.redo')" icon="iconfont icon-rotate-right-solid"
-                    severity="secondary" variant="outlined" class="custombutton" @click="redo"></Button>
+                <button v-tooltip.bottom="t('quill.toolbar.paragraph')" class="iconfont icon-section-solid custombutton" @click="toolbarToggle(1, true)"></button>
+                <button v-tooltip.bottom="t('quill.toolbar.text')" class="iconfont icon-a-solid custombutton" @click="toolbarToggle(2, true)"></button>
+                <button v-tooltip.bottom="t('quill.toolbar.object')" class="iconfont icon-circle-nodes-solid custombutton" @click="toolbarToggle(3, true)"></button>
+                <button v-tooltip.bottom="t('quill.toolbar.selectall')" class="iconfont icon-infinity-solid custombutton" style="margin-left: 10px; margin-right: 5px" @click="selectAll"></button>
+                <button v-tooltip.bottom="t('quill.toolbar.cut')" class="iconfont icon-scissors-solid custombutton" @click="cut"></button>
+                <button v-tooltip.bottom="t('quill.toolbar.undo')" class="iconfont icon-rotate-left-solid custombutton" @click="undo"></button>
+                <button v-tooltip.bottom="t('quill.toolbar.redo')" class="iconfont icon-rotate-right-solid custombutton" @click="redo"></button>
                 <div class="mt-1 inline-block h-[18px] overflow-hidden">
                     <button v-tooltip.bottom="t('quill.toolbar.cleanstyles')" class="ql-clean"></button>
                 </div>
             </span>
             <span class="ql-formats" id="group1" style="display: none">
-                <Button v-tooltip.bottom="t('quill.toolbar.back')" icon="iconfont icon-back" severity="secondary"
-                    variant="outlined" class="custombutton" @click="toolbarToggle(1, false)"></Button>
+                <button v-tooltip.bottom="t('quill.toolbar.back')" class="iconfont icon-back custombutton" @click="toolbarToggle(1, false)"></button>
                 <button v-tooltip.bottom="t('quill.toolbar.alignleft')" class="ql-align" value=""></button>
                 <button v-tooltip.bottom="t('quill.toolbar.aligncenter')" class="ql-align" value="center"></button>
                 <button v-tooltip.bottom="t('quill.toolbar.alignright')" class="ql-align" value="right"></button>
@@ -722,60 +783,40 @@ onUnmounted(() => {
                 </div>
             </span>
             <span class="ql-formats" id="group2" style="display: none">
-                <Button v-tooltip.bottom="t('quill.toolbar.back')" icon="iconfont icon-back" severity="secondary"
-                    variant="outlined" class="custombutton" @click="toolbarToggle(2, false)"></Button>
+                <button v-tooltip.bottom="t('quill.toolbar.back')" class="iconfont icon-back custombutton" @click="toolbarToggle(2, false)"></button>
                 <button v-tooltip.bottom="t('quill.toolbar.bold')" class="ql-bold"></button>
                 <button v-tooltip.bottom="t('quill.toolbar.italic')" class="ql-italic"></button>
                 <!-- <button v-tooltip.bottom="t('quill.toolbar.underline')" class="ql-underline"></button> -->
                 <!-- ql-underline自带的不要了，改用ql-normal-underline -->
-                <Button v-tooltip.bottom="t('quill.toolbar.underline')" icon="iconfont icon-underline-solid"
-                    severity="secondary" variant="outlined" class="custombutton ql-normal-underline"></Button>
-                <Button v-tooltip.bottom="t('quill.toolbar.doubleunderline')" icon="iconfont icon-double-underline1"
-                    severity="secondary" variant="outlined" class="custombutton ql-double-underline"></Button>
-                <Button v-tooltip.bottom="t('quill.toolbar.wavyunderline')" icon="iconfont icon-wavy-underline"
-                    severity="secondary" variant="outlined" class="custombutton ql-wavy-underline"></Button>
-                <Button v-tooltip.bottom="t('quill.toolbar.dashedunderline')" icon="iconfont icon-dashed-underline"
-                    severity="secondary" variant="outlined" class="custombutton ql-dashed-underline"></Button>
-                <Button v-tooltip.bottom="t('quill.toolbar.dotunderline')" icon="iconfont icon-dot-underline"
-                    severity="secondary" variant="outlined" class="custombutton ql-dot-underline"></Button>
+                <button v-tooltip.bottom="t('quill.toolbar.underline')" class="iconfont icon-underline-solid custombutton ql-normal-underline"></button>
+                <button v-tooltip.bottom="t('quill.toolbar.doubleunderline')" class="iconfont icon-double-underline1 custombutton ql-double-underline"></button>
+                <button v-tooltip.bottom="t('quill.toolbar.wavyunderline')" class="iconfont icon-wavy-underline custombutton ql-wavy-underline"></button>
+                <button v-tooltip.bottom="t('quill.toolbar.dashedunderline')" class="iconfont icon-dashed-underline custombutton ql-dashed-underline"></button>
+                <button v-tooltip.bottom="t('quill.toolbar.dotunderline')" class="iconfont icon-dot-underline custombutton ql-dot-underline"></button>
                 <button v-tooltip.bottom="t('quill.toolbar.strikethrough')" class="ql-strike"></button>
-                <Button v-tooltip.bottom="t('quill.toolbar.hatchingline')" icon="iconfont icon-mill-sign-solid"
-                    severity="secondary" variant="outlined" class="custombutton ql-hatching-line"></Button>
+                <button v-tooltip.bottom="t('quill.toolbar.hatchingline')" class="iconfont icon-mill-sign-solid custombutton ql-hatching-line"></button>
                 <button v-tooltip.bottom="t('quill.toolbar.subscript')" class="ql-script" value="sub"></button>
                 <button v-tooltip.bottom="t('quill.toolbar.superscript')" class="ql-script" value="super"></button>
-                <Button v-tooltip.bottom="t('quill.toolbar.pinyin')" icon="iconfont icon-brands-opencart"
-                    severity="secondary" variant="outlined" class="custombutton"></Button>
+                <button v-tooltip.bottom="t('quill.toolbar.pinyin')" class="iconfont icon-brands-opencart custombutton"></button>
                 <div class="mt-1 inline-block h-[18px] overflow-hidden">
                     <button v-tooltip.bottom="t('quill.toolbar.cleanstyles')" class="ql-clean"></button>
                 </div>
             </span>
             <span class="ql-formats" id="group3" style="display: none">
-                <Button v-tooltip.bottom="t('quill.toolbar.back')" icon="iconfont icon-back" severity="secondary"
-                    variant="outlined" class="custombutton" @click="toolbarToggle(3, false)"></Button>
+                <button v-tooltip.bottom="t('quill.toolbar.back')" class="iconfont icon-back custombutton" @click="toolbarToggle(3, false)"></button>
                 <!-- <button v-tooltip.bottom="t('quill.toolbar.image')" class="ql-image"></button> -->
                 <!-- <button v-tooltip.bottom="t('quill.toolbar.formula')" class="ql-formula"></button> -->
                 <button v-tooltip.bottom="t('quill.toolbar.table.table')" class="ql-table-better iconfont icon-border-all-solid"></button>
-                <!-- <Button v-tooltip.bottom="t('quill.toolbar.table.table')" icon="iconfont icon-border-all-solid"
-                    severity="secondary" variant="outlined" class="custombutton ql-table-better"></Button> -->
+                <!-- <button v-tooltip.bottom="t('quill.toolbar.table.table')" class="iconfont icon-border-all-solid custombutton ql-table-better"></button> -->
                 <!-- 编辑器里显示插图的逻辑暂时取消 -->
-                <!-- <Button v-tooltip.bottom="t('quill.toolbar.illustration')" icon="iconfont icon-object-group-regular"
-                    severity="secondary" variant="outlined" class="custombutton" @click="illusAdd"></Button> -->
-                <Button v-tooltip.bottom="t('quill.toolbar.formula')" icon="iconfont icon-square-root-variable-solid"
-                    severity="secondary" variant="outlined" class="custombutton ql-math-field-btn"
-                    @click="formulaEdit('', '')"></Button>
-                <Button v-tooltip.bottom="t('quill.toolbar.tikz')" icon="iconfont icon-star-of-david-solid"
-                    severity="secondary" variant="outlined" class="custombutton ql-tikzjax-btn"
-                    @click="tikZJaxEdit()"></Button>
-                <Button v-tooltip.bottom="t('quill.toolbar.musicscore')" icon="iconfont icon-brands-itunes-note"
-                    severity="secondary" variant="outlined" class="custombutton"></Button>
-                <Button v-tooltip.bottom="t('quill.toolbar.chart')" icon="iconfont icon-chart-simple-solid"
-                    severity="secondary" variant="outlined" class="custombutton"></Button>
-                <Button v-tooltip.bottom="t('quill.toolbar.specialchar')" icon="iconfont icon-registered-regular"
-                    severity="secondary" variant="outlined" class="custombutton" @click="symbolSelect"></Button>
-                <Button v-tooltip.bottom="t('quill.toolbar.emojichar')" icon="iconfont icon-face-smile-regular"
-                    severity="secondary" variant="outlined" class="custombutton" @click="emojiSelect"></Button>
-                <Button v-tooltip.bottom="t('quill.toolbar.splitline')" icon="iconfont icon-minus-solid"
-                    severity="secondary" variant="outlined" class="custombutton ql-divider"></Button>
+                <!-- <button v-tooltip.bottom="t('quill.toolbar.illustration')" class="iconfont icon-object-group-regular custombutton" @click="illusAdd"></button> -->
+                <button v-tooltip.bottom="t('quill.toolbar.formula')" class="iconfont icon-square-root-variable-solid custombutton ql-math-field-btn" @click="formulaEdit('', '')"></button>
+                <button v-tooltip.bottom="t('quill.toolbar.tikz')" class="iconfont icon-star-of-david-solid custombutton ql-tikzjax-btn" @click="tikZJaxEdit()"></button>
+                <button v-tooltip.bottom="t('quill.toolbar.musicscore')" class="iconfont icon-brands-itunes-note custombutton"></button>
+                <button v-tooltip.bottom="t('quill.toolbar.chart')" class="iconfont icon-chart-simple-solid custombutton"></button>
+                <button v-tooltip.bottom="t('quill.toolbar.specialchar')" class="iconfont icon-registered-regular custombutton" @click="symbolSelect"></button>
+                <button v-tooltip.bottom="t('quill.toolbar.emojichar')" class="iconfont icon-face-smile-regular custombutton" @click="emojiSelect"></button>
+                <button v-tooltip.bottom="t('quill.toolbar.splitline')" class="iconfont icon-minus-solid custombutton ql-divider"></button>
                 <div class="mt-1 inline-block h-[18px] overflow-hidden">
                     <button v-tooltip.bottom="t('quill.toolbar.cleanstyles')" class="ql-clean"></button>
                 </div>
@@ -786,7 +827,8 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-.custombutton {}
+.custombutton {
+}
 
 .custombutton:hover {
     color: var(--p-surface-100);
