@@ -1319,6 +1319,7 @@ const changeModel = (direction: 'next' | 'prev') => {
 
 const parseJSON = (str: string) => {
     str = str.replace(/nan/gi, '0');
+    str = str.replace(/\n/gi, '\\n');
     return JSON.parse(str);
 };
 
@@ -1891,8 +1892,9 @@ const _getImageOcrLabelInfoList = async (image_index: number): Promise<LabelInfo
         ocr_label = ocr_label.substring(ocr_label.indexOf('[{'), ocr_label.lastIndexOf('}]') + 2);
         if (!ocr_label.startsWith('[{')) return [];
         if (!ocr_label.endsWith('}]')) return [];
-        // console.log(ocr_label);
-        let list = JSON.parse(ocr_label);
+        // 清理JSON字符串，移除或转义不合法的字符
+        console.log(ocr_label,"image_index=",image_index);
+        let list = parseJSON(ocr_label);
         let labelInfoList = [];
         for (let i = 0; i < list.length; i++) {
             let label = list[i] || {};
